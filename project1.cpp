@@ -1,8 +1,8 @@
 #include "includes.hpp"
 
-#define MAXLINE 1024
-#define PORT 9873
-#define DEBUG 1
+const static int MAXLINE = 1024;
+const static int PORT = 9873;
+const static bool DEBUG = true;
 
 // ***************************************************************************
 // * Read the command from the socket.

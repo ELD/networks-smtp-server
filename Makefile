@@ -6,8 +6,8 @@
 #  Copyright 2012 Colorado School of Mines. All rights reserved.
 #
 
-CXX = g++
-LD = g++
+#CXX = g++
+#LD = g++
 CXXFLAGS = -g -pthread
 LDFLAGS = -g -pthread
 
@@ -17,7 +17,7 @@ LDFLAGS = -g -pthread
 OBJ_FILES = project1.o
 
 project1: ${OBJ_FILES}
-	${LD} ${LDFLAGS} ${OBJ_FILES} -o $@ ${LIBRARYS}
+	${CXX} ${LDFLAGS} ${OBJ_FILES} -o $@ ${LIBRARYS}
 
 #
 # Please remember not to submit objects or binarys.

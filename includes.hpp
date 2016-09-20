@@ -15,14 +15,15 @@ using namespace std;
 
 // ************************************************************************
 // * Assigning a tag to each token just makes the code easier to read.
+// * #DEFINE blocks are bad, don't do it. Use static consts instead, in this case
 // ************************************************************************
-#define HELO 1
-#define MAIL 2
-#define RCPT 3
-#define DATA 4
-#define RSET 5
-#define NOOP 6
-#define QUIT 7
+const static int HELO = 1;
+const static int MAIL = 2;
+const static int RCPT = 3;
+const static int DATA = 4;
+const static int RSET = 5;
+const static int NOOP = 6;
+const static int QUIT = 7;
 
 // ************************************************************************
 // * Local functions we are going to use.
