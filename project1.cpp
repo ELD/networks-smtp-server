@@ -15,7 +15,26 @@ string readCommand(int sockfd) { }
 // *  Read the string and find the command, returning the number we assoicated
 // *  with that command.
 // ***************************************************************************
-int parseCommand(string commandString) { }
+int parseCommand(string commandString)
+{
+    if (commandString == "HELO") {
+        return HELO;
+    } else if (commandString == "MAIL") {
+        return MAIL;
+    } else if (commandString == "RCPT") {
+        return RCPT;
+    } else if (commandString == "DATA") {
+        return DATA;
+    } else if (commandString == "RSET") {
+        return RSET;
+    } else if (commandString == "NOOP") {
+        return NOOP;
+    } else if (commandString == "QUIT") {
+        return QUIT;
+    }
+
+    return -1;
+}
 
 // ***************************************************************************
 // * processConnection()
@@ -92,7 +111,7 @@ void* processConnection(void *arg) {
 int main(int argc, char **argv) {
 
     if (argc != 1) {
-        cout << "useage " << argv[0] << endl;
+        cout << "usage " << argv[0] << endl;
         exit(-1);
     }
 
