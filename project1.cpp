@@ -10,9 +10,9 @@ const static bool   DEBUG   = true;
 // ***************************************************************************
 string readCommand(int sockfd)
 {
-    string commandBuffer;
-    read(sockfd, &commandBuffer, MAXLINE);
-    return commandBuffer;
+    char buffer[MAXLINE];
+    read(sockfd, &buffer, MAXLINE);
+    return string(buffer);
 }
 
 // ***************************************************************************
@@ -56,7 +56,8 @@ void* processConnection(void *arg) {
     // * This is a little bit of a cheat, but if you end up
     // * with a FD of more than 64 bits you are in trouble
     // *******************************************************
-    int sockfd = *(int *)arg;
+    int sockfd = *(int *) arg;
+    delete (int *) arg;
     if (DEBUG)
         cout << "We are in the thread with fd = " << sockfd << endl;
 
@@ -72,7 +73,10 @@ void* processConnection(void *arg) {
         // *******************************************************
         // * Read the command from the socket.
         // *******************************************************
+        cout << "Reading from socketfd = " << sockfd << endl;
         string cmdString = readCommand(sockfd);
+        cmdString = trim(cmdString);
+        cout << "Command string: " << cmdString << endl;
 
         // *******************************************************
         // * Parse the command.
@@ -186,7 +190,7 @@ int main(int argc, char **argv) {
         if (DEBUG)
             cout << "Calling accept() in master thread." << endl;
         int *connfd = new int(-1);
-        if (*connfd = accept(listenfd, (struct sockaddr *) NULL, NULL) < 0) {
+        if ((*connfd = accept(listenfd, (struct sockaddr *) NULL, NULL)) < 0) {
             cout << "Accept failed: " << strerror(errno) << endl;
             exit(-1);
         }
@@ -195,7 +199,17 @@ int main(int argc, char **argv) {
             cout << "Spawing new thread to handled connect on fd=" << *connfd << endl;
 
         pthread_t* threadID = new pthread_t;
-        pthread_create(threadID, NULL, processConnection, (void *)&connfd);
+        pthread_create(threadID, NULL, processConnection, (void *)connfd);
         threads.insert(threadID);
     }
 }
+
+string trim(string &s)
+{
+    s.erase(s.begin(), find_if(s.begin(), s.end(),
+                not1(ptr_fun<int, int>(isspace))));
+    s.erase(find_if(s.rbegin(), s.rend(),
+                not1(ptr_fun<int, int>(isspace))).base(), s.end());
+    return s;
+}
+

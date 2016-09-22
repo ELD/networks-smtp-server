@@ -11,6 +11,7 @@
 #include <iostream>
 #include <string>
 #include <set>
+#include <algorithm>
 
 using namespace std;
 
@@ -32,3 +33,5 @@ const static int QUIT = 7;
 string readCommand(int sockfd);
 int parseCommand(string commandString);
 void* processConnection(void *arg);
+string trim(string &);
+
