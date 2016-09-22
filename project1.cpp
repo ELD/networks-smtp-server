@@ -1,7 +1,7 @@
 #include "includes.hpp"
 
 const static int    MAXLINE = 1024;
-const static int    PORT    = 9873;
+const static int    PORT    = 10001;
 const static bool   DEBUG   = true;
 
 // ***************************************************************************
@@ -69,8 +69,6 @@ void* processConnection(void *arg) {
     char *messageBuffer     = NULL;
 
     while (connectionActive) {
-
-
         // *******************************************************
         // * Read the command from the socket.
         // *******************************************************
@@ -86,7 +84,6 @@ void* processConnection(void *arg) {
         // *******************************************************
         switch (command) {
             case HELO:
-                cout << cmdString << endl;
                 break;
             case MAIL:
                 break;
@@ -102,8 +99,8 @@ void* processConnection(void *arg) {
                 connectionActive = false;
                 break;
             default:
-            break;
-                // cout << "Unknown command (" << command << ")" << endl;
+                break;
+                //cout << "Unknown command (" << command << ")" << endl;
         }
     }
 
@@ -133,7 +130,7 @@ int main(int argc, char **argv) {
     if ((listenfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         cout << "Failed to create listening socket "
              << strerror(errno) << endl;
-        
+
         exit(-1);
     }
 
@@ -142,10 +139,9 @@ int main(int argc, char **argv) {
     // * The same address structure is used, however we use a wildcard
     // * for the IP address since we don't know who will be connecting.
     // ********************************************************************
-    struct sockaddr_in servaddr, clientaddr;
+    struct sockaddr_in servaddr;
 
     bzero(&servaddr, sizeof(servaddr));
-    bzero(&clientaddr, sizeof(clientaddr));
     servaddr.sin_family         = PF_INET;
     servaddr.sin_addr.s_addr    = htonl(INADDR_ANY);
     servaddr.sin_port           = htons(PORT);
@@ -172,7 +168,7 @@ int main(int argc, char **argv) {
     if (DEBUG)
         cout << "We are now listening for new connections" << endl;
 
-    int listenq = 1;
+    int listenq = -1;
 
     if (listen(listenfd, listenq) < 0) {
         cout << "listen() failed: " << strerror(errno) << endl;
@@ -189,15 +185,14 @@ int main(int argc, char **argv) {
     while (1) {
         if (DEBUG)
             cout << "Calling accept() in master thread." << endl;
-        int connfd = -1;
-        int clientLen = sizeof(clientaddr);
-        if (connfd = accept(listenfd, (struct sockaddr *) &clientaddr, &clientLen) < 0) {
+        int *connfd = new int(-1);
+        if (*connfd = accept(listenfd, (struct sockaddr *) NULL, NULL) < 0) {
             cout << "Accept failed: " << strerror(errno) << endl;
             exit(-1);
         }
 
         if (DEBUG)
-            cout << "Spawing new thread to handled connect on fd=" << connfd << endl;
+            cout << "Spawing new thread to handled connect on fd=" << *connfd << endl;
 
         pthread_t* threadID = new pthread_t;
         pthread_create(threadID, NULL, processConnection, (void *)&connfd);
