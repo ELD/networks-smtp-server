@@ -1,14 +1,19 @@
 #include "includes.hpp"
 
-const static int MAXLINE = 1024;
-const static int PORT = 9873;
-const static bool DEBUG = true;
+const static int    MAXLINE = 1024;
+const static int    PORT    = 9873;
+const static bool   DEBUG   = true;
 
 // ***************************************************************************
 // * Read the command from the socket.
 // *  Simply read a line from the socket and return it as a string.
 // ***************************************************************************
-string readCommand(int sockfd) { }
+string readCommand(int sockfd)
+{
+    string commandBuffer;
+    read(sockfd, &commandBuffer, MAXLINE);
+    return commandBuffer;
+}
 
 // ***************************************************************************
 // * Parse the command.
@@ -42,7 +47,7 @@ int parseCommand(string commandString)
 // *  !!! NOTE - the IOSTREAM library and the cout varibables may or may
 // *      not be thread safe depending on your system.  I use the cout
 // *      statments for debugging when I know there will be just one thread
-// *      but once you are processing multiple rquests it might cause problems.
+// *      but once you are processing multiple requests it might cause problems.
 // ***************************************************************************
 void* processConnection(void *arg) {
 
@@ -55,13 +60,14 @@ void* processConnection(void *arg) {
     if (DEBUG)
         cout << "We are in the thread with fd = " << sockfd << endl;
 
-    int connectionActive = 1;
-    int seenMAIL = 0;
-    int seenRCPT = 0;
-    int seenDATA = 0;
-    string forwardPath = "";
-    string reversePath = "";
-    char *messageBuffer = NULL;
+    bool connectionActive   = true;
+    int seenMAIL            = 0;
+    int seenRCPT            = 0;
+    int seenDATA            = 0;
+    string forwardPath      = "";
+    string reversePath      = "";
+    char *messageBuffer     = NULL;
+
     while (connectionActive) {
 
 
@@ -79,24 +85,29 @@ void* processConnection(void *arg) {
         // * Act on each of the commands we need to implement.
         // *******************************************************
         switch (command) {
-            case HELO :
+            case HELO:
+                cout << cmdString << endl;
                 break;
-            case MAIL :
+            case MAIL:
                 break;
-            case RCPT :
+            case RCPT:
                 break;
-            case DATA :
+            case DATA:
                 break;
-            case RSET :
+            case RSET:
                 break;
-            case NOOP :
+            case NOOP:
                 break;
-            case QUIT :
+            case QUIT:
+                connectionActive = false;
                 break;
-            default :
-                cout << "Unknown command (" << command << ")" << endl;
+            default:
+            break;
+                // cout << "Unknown command (" << command << ")" << endl;
         }
     }
+
+    close(sockfd);
 
     if (DEBUG)
         cout << "Thread terminating" << endl;
@@ -121,7 +132,7 @@ int main(int argc, char **argv) {
     int listenfd = -1;
     if ((listenfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         cout << "Failed to create listening socket "
-             << errno << endl;
+             << strerror(errno) << endl;
         
         exit(-1);
     }
@@ -131,15 +142,13 @@ int main(int argc, char **argv) {
     // * The same address structure is used, however we use a wildcard
     // * for the IP address since we don't know who will be connecting.
     // ********************************************************************
-    struct sockaddr_in	servaddr;
+    struct sockaddr_in servaddr, clientaddr;
 
     bzero(&servaddr, sizeof(servaddr));
-
-    servaddr.sin_family = PF_INET;
-
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    servaddr.sin_port = htons(PORT);
+    bzero(&clientaddr, sizeof(clientaddr));
+    servaddr.sin_family         = PF_INET;
+    servaddr.sin_addr.s_addr    = htonl(INADDR_ANY);
+    servaddr.sin_port           = htons(PORT);
 
 
     // ********************************************************************
@@ -150,8 +159,8 @@ int main(int argc, char **argv) {
     if (DEBUG)
         cout << "Process has bound fd " << listenfd << " to port " << PORT << endl;
 
-    if (bind(listenfd, (sockaddr*) &servaddr, sizeof(servaddr)) < 0) {
-        cout << "bind() failed: " << errno << endl;
+    if (bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
+        cout << "bind() failed: " << strerror(errno) << endl;
         exit(-1);
     }
 
@@ -166,7 +175,7 @@ int main(int argc, char **argv) {
     int listenq = 1;
 
     if (listen(listenfd, listenq) < 0) {
-        cout << "listen() failed: " << errno << endl;
+        cout << "listen() failed: " << strerror(errno) << endl;
         exit(-1);
     }
 
@@ -181,8 +190,9 @@ int main(int argc, char **argv) {
         if (DEBUG)
             cout << "Calling accept() in master thread." << endl;
         int connfd = -1;
-        if ((connfd = accept(listenfd, nullptr, nullptr)) < 0) {
-            cout << "Accept failed: " << errno << endl;
+        int clientLen = sizeof(clientaddr);
+        if (connfd = accept(listenfd, (struct sockaddr *) &clientaddr, &clientLen) < 0) {
+            cout << "Accept failed: " << strerror(errno) << endl;
             exit(-1);
         }
 

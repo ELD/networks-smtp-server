@@ -8,7 +8,7 @@
 
 #CXX = g++
 #LD = g++
-CXXFLAGS = -g -pthread
+CXXFLAGS = -g -pthread -fpermissive
 LDFLAGS = -g -pthread
 
 #
