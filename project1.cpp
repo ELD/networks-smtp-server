@@ -118,7 +118,13 @@ int main(int argc, char **argv) {
     // *******************************************************************
     // * Creating the inital socket is the same as in a client.
     // ********************************************************************
-    int     listenfd = -1;
+    int listenfd = -1;
+    if ((listenfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+        cout << "Failed to create listening socket "
+             << errno << endl;
+        
+        exit(-1);
+    }
 
 
     // ********************************************************************
@@ -126,6 +132,14 @@ int main(int argc, char **argv) {
     // * for the IP address since we don't know who will be connecting.
     // ********************************************************************
     struct sockaddr_in	servaddr;
+
+    bzero(&servaddr, sizeof(servaddr));
+
+    servaddr.sin_family = PF_INET;
+
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    servaddr.sin_port = htons(PORT);
 
 
     // ********************************************************************
@@ -136,6 +150,10 @@ int main(int argc, char **argv) {
     if (DEBUG)
         cout << "Process has bound fd " << listenfd << " to port " << PORT << endl;
 
+    if (bind(listenfd, (sockaddr*) &servaddr, sizeof(servaddr)) < 0) {
+        cout << "bind() failed: " << errno << endl;
+        exit(-1);
+    }
 
     // ********************************************************************
     // * Setting the socket to the listening state is the second step
@@ -144,6 +162,13 @@ int main(int argc, char **argv) {
     // ********************************************************************
     if (DEBUG)
         cout << "We are now listening for new connections" << endl;
+
+    int listenq = 1;
+
+    if (listen(listenfd, listenq) < 0) {
+        cout << "listen() failed: " << errno << endl;
+        exit(-1);
+    }
 
 
     // ********************************************************************
@@ -156,7 +181,10 @@ int main(int argc, char **argv) {
         if (DEBUG)
             cout << "Calling accept() in master thread." << endl;
         int connfd = -1;
-
+        if ((connfd = accept(listenfd, nullptr, nullptr)) < 0) {
+            cout << "Accept failed: " << errno << endl;
+            exit(-1);
+        }
 
         if (DEBUG)
             cout << "Spawing new thread to handled connect on fd=" << connfd << endl;
