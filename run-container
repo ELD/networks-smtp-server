@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+docker run -it --rm \
+    -v ~/Downloads/SampleCode:/home/work \
+    -p 9873:9873 \
+    eld/csci471
+

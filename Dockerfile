@@ -8,7 +8,3 @@ RUN apt-get update \
 
 EXPOSE 9873
 
-VOLUME ["/Work"]
-
-ADD . /home/Work
-
