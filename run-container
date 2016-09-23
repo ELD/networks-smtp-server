@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-docker run -it --rm \
-    -v ~/Downloads/SampleCode:/home/work \
-    -p 9873:9873 \
+docker run -it --rm --privileged \
+    -v ~/Downloads/SampleCode/Project:/home/work \
+    -p 10001:$1 \
     eld/csci471
 

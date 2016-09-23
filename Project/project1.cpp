@@ -88,6 +88,7 @@ void* processConnection(void *arg) {
         // *******************************************************
         switch (command) {
             case HELO:
+                write(sockfd, "Hello!\n", 8);
                 break;
             case MAIL:
                 break;
