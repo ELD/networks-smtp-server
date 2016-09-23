@@ -99,13 +99,14 @@ void* processConnection(void *arg) {
             case RSET:
                 break;
             case NOOP:
+                doNoopCommand(sockfd);
                 break;
             case QUIT:
                 connectionActive = false;
                 break;
             default:
+                doUnknownCommand(sockfd);
                 break;
-                //cout << "Unknown command (" << command << ")" << endl;
         }
     }
 
@@ -203,6 +204,18 @@ int main(int argc, char **argv) {
         pthread_create(threadID, NULL, processConnection, (void *)connfd);
         threads.insert(threadID);
     }
+}
+
+void doNoopCommand(int sockfd)
+{
+    string message = "250 OK\n";
+    write(sockfd, message.c_str(), message.length());
+}
+
+void doUnknownCommand(int sockfd)
+{
+    string message = "500 unrecognized command\n";
+    write(sockfd, message.c_str(), message.length());
 }
 
 string trim(string &s)
