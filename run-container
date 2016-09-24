@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 docker run -it --rm --privileged \
-    -v ~/Downloads/SampleCode/Project:/home/work \
+    -v /Users/edattore/Dev/School/csci-471/NetworksSMTP/Project:/home/work \
     -p 10001:$1 \
     eld/csci471
 

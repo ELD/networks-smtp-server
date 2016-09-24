@@ -22,19 +22,27 @@ string readCommand(int sockfd)
 // ***************************************************************************
 int parseCommand(string commandString)
 {
-    if (commandString == "HELO") {
+    string command = "";
+    int spacePos = commandString.find_first_of(' ');
+
+    if (spacePos != string::npos) {
+        command = commandString.substr(0, spacePos);
+    } else {
+        command = commandString;
+    }
+    if (command == "HELO" || command == "EHLO") {
         return HELO;
-    } else if (commandString == "MAIL") {
+    } else if (command == "MAIL") {
         return MAIL;
-    } else if (commandString == "RCPT") {
+    } else if (command == "RCPT") {
         return RCPT;
-    } else if (commandString == "DATA") {
+    } else if (command == "DATA") {
         return DATA;
-    } else if (commandString == "RSET") {
+    } else if (command == "RSET") {
         return RSET;
-    } else if (commandString == "NOOP") {
+    } else if (command == "NOOP") {
         return NOOP;
-    } else if (commandString == "QUIT") {
+    } else if (command == "QUIT") {
         return QUIT;
     }
 
@@ -50,8 +58,6 @@ int parseCommand(string commandString)
 // *      but once you are processing multiple requests it might cause problems.
 // ***************************************************************************
 void* processConnection(void *arg) {
-
-
     // *******************************************************
     // * This is a little bit of a cheat, but if you end up
     // * with a FD of more than 64 bits you are in trouble
@@ -62,12 +68,12 @@ void* processConnection(void *arg) {
         cout << "We are in the thread with fd = " << sockfd << endl;
 
     bool connectionActive   = true;
-    int seenMAIL            = 0;
-    int seenRCPT            = 0;
-    int seenDATA            = 0;
+    bool seenMAIL            = false;
+    bool seenRCPT            = false;
+    bool seenDATA            = false;
     string forwardPath      = "";
     string reversePath      = "";
-    char *messageBuffer     = NULL;
+    char *messageBuffer     = nullptr;
 
     while (connectionActive) {
         // *******************************************************
@@ -76,7 +82,6 @@ void* processConnection(void *arg) {
         cout << "Reading from socketfd = " << sockfd << endl;
         string cmdString = readCommand(sockfd);
         cmdString = trim(cmdString);
-        cout << "Command string: " << cmdString << endl;
 
         // *******************************************************
         // * Parse the command.
@@ -88,16 +93,28 @@ void* processConnection(void *arg) {
         // *******************************************************
         switch (command) {
             case HELO:
+                // TODO: Grab hostname
                 write(sockfd, "Hello!\n", 8);
                 break;
             case MAIL:
+                // TODO: Fetch 'from' field of email
                 break;
             case RCPT:
+                // TODO: Fetch 'to' field of email
                 break;
             case DATA:
+                // TODO: Fetch message body
                 break;
             case RSET:
+            {
+                seenDATA = false;
+                seenMAIL = false;
+                seenRCPT = false;
+                forwardPath = "";
+                reversePath = "";
+                messageBuffer = nullptr;
                 break;
+            }
             case NOOP:
                 doNoopCommand(sockfd);
                 break;
@@ -192,7 +209,7 @@ int main(int argc, char **argv) {
         if (DEBUG)
             cout << "Calling accept() in master thread." << endl;
         int *connfd = new int(-1);
-        if ((*connfd = accept(listenfd, (struct sockaddr *) NULL, NULL)) < 0) {
+        if ((*connfd = accept(listenfd, (struct sockaddr *) nullptr, nullptr)) < 0) {
             cout << "Accept failed: " << strerror(errno) << endl;
             exit(-1);
         }
@@ -201,7 +218,7 @@ int main(int argc, char **argv) {
             cout << "Spawing new thread to handled connect on fd=" << *connfd << endl;
 
         pthread_t* threadID = new pthread_t;
-        pthread_create(threadID, NULL, processConnection, (void *)connfd);
+        pthread_create(threadID, nullptr, processConnection, (void *)connfd);
         threads.insert(threadID);
     }
 }
