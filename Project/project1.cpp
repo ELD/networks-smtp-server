@@ -2,6 +2,7 @@
 
 const static int MAXLINE = 1024;
 const static int PORT = 10001;
+const static int SMTP_PORT = 25;
 const static bool DEBUG = true;
 const static string fqHostname = getFqHostname();
 
@@ -538,7 +539,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
 
     clientaddr.sin_family = PF_INET;
     memcpy((char *)&clientaddr.sin_addr.s_addr, (char *)server->h_addr, server->h_length);
-    clientaddr.sin_port = htons(10002);
+    clientaddr.sin_port = htons(SMTP_PORT);
 
     // Step 3
     if (connect(lfd, (sockaddr *)&clientaddr, sizeof(clientaddr)) < 0) {
