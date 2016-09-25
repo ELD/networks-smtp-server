@@ -24,6 +24,7 @@ int parseCommand(string commandString)
 {
     string command = "";
     int spacePos = commandString.find_first_of(' ');
+    cout << "First of space: " << spacePos << endl;
 
     if (spacePos != string::npos) {
         command = commandString.substr(0, spacePos);
@@ -74,14 +75,16 @@ void* processConnection(void *arg) {
     string forwardPath      = "";
     string reversePath      = "";
     char *messageBuffer     = nullptr;
+    string cmdString = "";
 
     while (connectionActive) {
         // *******************************************************
         // * Read the command from the socket.
         // *******************************************************
         cout << "Reading from socketfd = " << sockfd << endl;
-        string cmdString = readCommand(sockfd);
+        cmdString = readCommand(sockfd);
         cmdString = trim(cmdString);
+        cout << "Trimmed command string: " << cmdString << endl;
 
         // *******************************************************
         // * Parse the command.
@@ -97,12 +100,16 @@ void* processConnection(void *arg) {
                 write(sockfd, "Hello!\n", 8);
                 break;
             case MAIL:
-                // TODO: Fetch 'from' field of email
+                // TODO: Fetch 'from' field of email and store in the reversePath
+                reversePath = doMailCommand(sockfd, cmdString);
+                cout << "Setting reverse path: " << reversePath << endl;
                 break;
             case RCPT:
+                // Only work if you've seen MAIL command
                 // TODO: Fetch 'to' field of email
                 break;
             case DATA:
+                // Only work if you've seen MAIL and RCPT command
                 // TODO: Fetch message body
                 break;
             case RSET:
@@ -221,6 +228,11 @@ int main(int argc, char **argv) {
         pthread_create(threadID, nullptr, processConnection, (void *)connfd);
         threads.insert(threadID);
     }
+}
+
+string doMailCommand(int sockfd, string const& cmdString)
+{
+    return "test@example.com";
 }
 
 void doNoopCommand(int sockfd)

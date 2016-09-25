@@ -33,6 +33,7 @@ const static int QUIT = 7;
 string readCommand(int sockfd);
 int parseCommand(string commandString);
 void* processConnection(void *arg);
+string doMailCommand(int, string const&);
 void doNoopCommand(int);
 void doUnknownCommand(int);
 string trim(string &);
