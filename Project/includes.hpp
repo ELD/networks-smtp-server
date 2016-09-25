@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <resolv.h>
+#include <netdb.h>
 
 #include <errno.h>
 
@@ -35,10 +36,12 @@ const static int QUIT = 7;
 string readCommand(int sockfd);
 int parseCommand(string commandString);
 void* processConnection(void *arg);
+string getFqHostname();
 void doHelloCommand(int, string const&);
 string doMailCommand(int, string const&);
+void doRsetCommand(int);
 void doNoopCommand(int);
-void doQuitCommand(int);
+void doQuitCommand(int, string const&);
 void doUnknownCommand(int);
 void doOutOfOrderError(int, string const);
 string trim(string &);

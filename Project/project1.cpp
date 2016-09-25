@@ -95,8 +95,10 @@ void* processConnection(void *arg) {
         messageBuffer = nullptr;
     };
 
+    string fqHostname = getFqHostname();
+
     // Write 220-ready code
-    string message = "220 toySMTP service ready\n";
+    string message = "220 " + fqHostname + " service ready\n";
     write(sockfd, message.c_str(), message.length());
 
     while (connectionActive) {
@@ -148,7 +150,7 @@ void* processConnection(void *arg) {
                 doNoopCommand(sockfd);
                 break;
             case QUIT:
-                doQuitCommand(sockfd);
+                doQuitCommand(sockfd, fqHostname);
                 connectionActive = false;
                 break;
             default:
@@ -253,6 +255,32 @@ int main(int argc, char **argv) {
     }
 }
 
+string getFqHostname()
+{
+    struct addrinfo hints, *info, *p;
+    int result;
+
+    char hostname[1024];
+    hostname[1023] = '\0';
+    gethostname(hostname, 1023);
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = PF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME;
+
+    if ((result = getaddrinfo(hostname, "http", &hints, &info)) != 0) {
+        cout << "Error: " << gai_strerror(result) << endl;
+    }
+
+    // assume only one record
+    string fqHostname = string(info->ai_canonname);
+
+    freeaddrinfo(info);
+
+    return fqHostname;
+}
+
 void doHelloCommand(int sockfd, string const& cmdString)
 {
     int hostnameStartPos = cmdString.find_first_of(' ');
@@ -271,15 +299,21 @@ string doMailCommand(int sockfd, string const& cmdString)
     return "test@example.com";
 }
 
+void doRsetCommand(int sockfd)
+{
+    string message = "250 reset ok\n";
+    write(sockfd, message.c_str(), message.length());
+}
+
 void doNoopCommand(int sockfd)
 {
     string message = "250 OK\n";
     write(sockfd, message.c_str(), message.length());
 }
 
-void doQuitCommand(int sockfd)
+void doQuitCommand(int sockfd, string const& fqHostname)
 {
-    string message = "221 closing connection\n";
+    string message = "221 " + fqHostname + " closing connection\n";
     write(sockfd, message.c_str(), message.length());
 }
 
