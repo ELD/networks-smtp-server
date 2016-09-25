@@ -85,6 +85,7 @@ void* processConnection(void *arg) {
 
     // C++11/14 lambda to reset the state of the server
     // reduces code duplication
+    // It captures the outer scope by reference to allow for mutation
     auto resetState = [&](){
         seenMAIL = false;
         seenRCPT = false;
@@ -93,6 +94,10 @@ void* processConnection(void *arg) {
         reversePath = "";
         messageBuffer = nullptr;
     };
+
+    // Write 220-ready code
+    string message = "220 toySMTP service ready\n";
+    write(sockfd, message.c_str(), message.length());
 
     while (connectionActive) {
         // *******************************************************
@@ -110,29 +115,31 @@ void* processConnection(void *arg) {
         // *******************************************************
         // * Act on each of the commands we need to implement.
         // *******************************************************
-        string domain = "gmail.com";
         switch (command) {
             case HELO:
                 // TODO: Grab hostname
-                write(sockfd, "Hello!\n", 8);
+                doHelloCommand(sockfd, cmdString);
                 break;
             case MAIL:
                 // TODO: Fetch 'from' field of email and store in the reversePath
                 resetState();
                 reversePath = doMailCommand(sockfd, cmdString);
                 cout << "Setting reverse path: " << reversePath << endl;
-                // XXX Totally experimental use of res_query
-                u_char result[1024];
-                res_query(domain.c_str(), C_IN, T_MX, result, 1024);
-                cout << "res_query result: " << result << endl;
                 break;
             case RCPT:
                 // Only work if you've seen MAIL command
                 // TODO: Fetch 'to' field of email
+                if (!seenMAIL) {
+                    doOutOfOrderError(sockfd, "sender info not yet given");
+                }
                 break;
             case DATA:
                 // Only work if you've seen MAIL and RCPT command
                 // TODO: Fetch message body
+                if (!seenRCPT) {
+                    doOutOfOrderError(sockfd, "valid RCPT must precede DATA");
+                }
+
                 break;
             case RSET:
                 resetState();
@@ -141,6 +148,7 @@ void* processConnection(void *arg) {
                 doNoopCommand(sockfd);
                 break;
             case QUIT:
+                doQuitCommand(sockfd);
                 connectionActive = false;
                 break;
             default:
@@ -245,6 +253,19 @@ int main(int argc, char **argv) {
     }
 }
 
+void doHelloCommand(int sockfd, string const& cmdString)
+{
+    int hostnameStartPos = cmdString.find_first_of(' ');
+    if (hostnameStartPos != string::npos) {
+        string hostname = cmdString.substr(hostnameStartPos + 1);
+        string message = "250 hello " + hostname + "\n";
+        write(sockfd, message.c_str(), message.length());
+    } else {
+        string message = "501 missing argument(s)\n";
+        write(sockfd, message.c_str(), message.length());
+    }
+}
+
 string doMailCommand(int sockfd, string const& cmdString)
 {
     return "test@example.com";
@@ -256,9 +277,21 @@ void doNoopCommand(int sockfd)
     write(sockfd, message.c_str(), message.length());
 }
 
+void doQuitCommand(int sockfd)
+{
+    string message = "221 closing connection\n";
+    write(sockfd, message.c_str(), message.length());
+}
+
 void doUnknownCommand(int sockfd)
 {
     string message = "500 unrecognized command\n";
+    write(sockfd, message.c_str(), message.length());
+}
+
+void doOutOfOrderError(int sockfd, string errorMsg)
+{
+    string message = "503 " + errorMsg + "\n";
     write(sockfd, message.c_str(), message.length());
 }
 
