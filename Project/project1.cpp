@@ -318,20 +318,20 @@ void doHelloCommand(int sockfd, string const& cmdString)
 int doMailCommand(int sockfd, string const& cmdString, string &reversePath)
 {
     // Make sure FROM parameter exists
-    int fromPos = cmdString.find_first_of("FROM:");
+    int fromPos = cmdString.find("FROM:");
     if (fromPos == string::npos) {
         return -1;
     }
 
     // Find the email address in the <...> syntax
-    int startBracketPos = cmdString.find_first_of('<');
-    int endBracketPos = cmdString.find_last_of('>');
+    int startBracketPos = cmdString.find('<');
+    int endBracketPos = cmdString.find('>');
     int substrLength = endBracketPos - startBracketPos - 1;
 
     reversePath = cmdString.substr(startBracketPos + 1, substrLength);
 
     // Make sure the email address appears "valid"
-    int atSignPos = reversePath.find_first_of('@');
+    int atSignPos = reversePath.find('@');
     if (atSignPos == string::npos) {
         return -1;
     }
@@ -342,18 +342,18 @@ int doMailCommand(int sockfd, string const& cmdString, string &reversePath)
 
 int doRcptCommand(int sockfd, string const& cmdString, string& forwardPath)
 {
-    int toPos = cmdString.find_first_of("TO:");
+    int toPos = cmdString.find("TO:");
     if (toPos == string::npos) {
         return -1;
     }
 
-    int startBracketPos = cmdString.find_first_of('<');
-    int endBracketPos = cmdString.find_last_of('>');
+    int startBracketPos = cmdString.find('<');
+    int endBracketPos = cmdString.find('>');
     int substrLength = endBracketPos - startBracketPos - 1;
 
     forwardPath = cmdString.substr(startBracketPos + 1, substrLength);
 
-    int atSignPos = forwardPath.find_first_of('@');
+    int atSignPos = forwardPath.find('@');
     if (atSignPos == string::npos) {
         return -1;
     }

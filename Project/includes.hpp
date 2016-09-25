@@ -1,3 +1,6 @@
+#ifndef __INCLUDES_HPP_
+#define __INCLUDES_HPP_
+
 #include <unistd.h>
 #include <cstdlib>
 #include <cstring>
@@ -48,4 +51,6 @@ void doUnknownCommand(int);
 void doError(int, string const&, string const&);
 void doSuccess(int, string const&, string const&);
 string trim(string &);
+
+#endif
 
