@@ -53,7 +53,7 @@ void doUnknownCommand(int);
 void doError(int, string const &, string const &);
 void doSuccess(int, string const &, string const &);
 void fetchMessageBuffer(int, string &);
-int processMessage(string const &, string const &, string const &);
+void processMessage(int, string const &, string const &, string const &);
 int writeToLocalFilesystem(string const &, string const &, string const &);
 int attemptToRelay(string const &, string const &, string const &);
 bool isLocalRecipient(string const &);

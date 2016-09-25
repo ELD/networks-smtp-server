@@ -3,6 +3,7 @@
 const static int MAXLINE = 1024;
 const static int PORT = 10001;
 const static bool DEBUG = true;
+const static string fqHostname = getFqHostname();
 
 // ***************************************************************************
 // * Read the command from the socket.
@@ -103,8 +104,6 @@ void *processConnection(void *arg)
         messageBuffer = "";
     };
 
-    string fqHostname = getFqHostname();
-
     // Write 220-ready code
     string message = "220 " + fqHostname + " service ready\n";
     write(sockfd, message.c_str(), message.length());
@@ -175,15 +174,14 @@ void *processConnection(void *arg)
             else {
                 doSuccess(sockfd, "354", "Start mail input; end with <CRLF>.<CRLF>");
                 fetchMessageBuffer(sockfd, messageBuffer);
-                result = processMessage(reversePath, forwardPath, messageBuffer);
+                processMessage(sockfd, reversePath, forwardPath, messageBuffer);
 
-                if (result != 0) {
-                    doError(sockfd, "451", "Local error in processing");
-                }
-                else {
-                    doSuccess(sockfd, "250", "OK");
-                }
-                // TODO: Error handling on result
+                // if (result != 0) {
+                //     doError(sockfd, "451", "Local error in processing");
+                // }
+                // else {
+                //     doSuccess(sockfd, "250", "OK");
+                // }
             }
 
             break;
@@ -439,13 +437,28 @@ void fetchMessageBuffer(int sockfd, string &msgBuffer)
     }
 }
 
-int processMessage(string const &reversePath, string const &forwardPath, string const &message)
+void processMessage(int sockfd, string const &reversePath, string const &forwardPath, string const &message)
 {
+    int result = -1;
     if (isLocalRecipient(forwardPath)) {
-        return writeToLocalFilesystem(reversePath, forwardPath, message);
+        result = writeToLocalFilesystem(reversePath, forwardPath, message);
+
+        if (result != 0) {
+            doError(sockfd, "451", "Local error in processing");
+        }
+        else {
+            doSuccess(sockfd, "250", "OK");
+        }
     }
     else {
-        return attemptToRelay(reversePath, forwardPath, message);
+        result = attemptToRelay(reversePath, forwardPath, message);
+
+        if (result != 0) {
+            doError(sockfd, "554", "unable to relay successfully");
+        }
+        else {
+            doSuccess(sockfd, "250", "OK");
+        }
     }
 }
 
