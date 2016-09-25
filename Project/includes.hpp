@@ -38,11 +38,14 @@ int parseCommand(string commandString);
 void* processConnection(void *arg);
 string getFqHostname();
 void doHelloCommand(int, string const&);
-string doMailCommand(int, string const&);
+int doMailCommand(int, string const&, string &);
+int doRcptCommand(int, string const&, string &);
+int doDataCommand(int);
 void doRsetCommand(int);
 void doNoopCommand(int);
 void doQuitCommand(int, string const&);
 void doUnknownCommand(int);
-void doOutOfOrderError(int, string const);
+void doError(int, string const&, string const&);
+void doSuccess(int, string const&, string const&);
 string trim(string &);
 

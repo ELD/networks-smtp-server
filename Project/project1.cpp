@@ -117,34 +117,53 @@ void* processConnection(void *arg) {
         // *******************************************************
         // * Act on each of the commands we need to implement.
         // *******************************************************
+        int result = -1;
         switch (command) {
             case HELO:
-                // TODO: Grab hostname
                 doHelloCommand(sockfd, cmdString);
                 break;
             case MAIL:
-                // TODO: Fetch 'from' field of email and store in the reversePath
                 resetState();
-                reversePath = doMailCommand(sockfd, cmdString);
-                cout << "Setting reverse path: " << reversePath << endl;
+                result = doMailCommand(sockfd, cmdString, reversePath);
+
+                if (result != 0) {
+                    doError(sockfd, "501", "reverse path not well-formed");
+                } else {
+                    seenMAIL = true;
+                    doSuccess(sockfd, "250", "reverse path ok");
+                    cout << "Setting reverse path: " << reversePath << endl;
+                }
+
+                result = -1;
+
                 break;
             case RCPT:
                 // Only work if you've seen MAIL command
-                // TODO: Fetch 'to' field of email
                 if (!seenMAIL) {
-                    doOutOfOrderError(sockfd, "sender info not yet given");
+                    doError(sockfd, "503", "sender info not yet given");
+                } else {
+                    result = doRcptCommand(sockfd, cmdString, forwardPath);
+                    if (result != 0) {
+                        doError(sockfd, "501", "forward path not well-formed");
+                    } else {
+                        seenRCPT = true;
+                        doSuccess(sockfd, "250", "forward path ok");
+                        cout << "Setting forward path: " << forwardPath << endl;
+                    }
                 }
                 break;
             case DATA:
                 // Only work if you've seen MAIL and RCPT command
-                // TODO: Fetch message body
                 if (!seenRCPT) {
-                    doOutOfOrderError(sockfd, "valid RCPT must precede DATA");
+                    doError(sockfd, "503", "valid RCPT must precede DATA");
+                } else {
+                    //doDataCommand(...);
                 }
 
                 break;
             case RSET:
                 resetState();
+                doRsetCommand(sockfd);
                 break;
             case NOOP:
                 doNoopCommand(sockfd);
@@ -196,7 +215,7 @@ int main(int argc, char **argv) {
     // ********************************************************************
     struct sockaddr_in servaddr;
 
-    bzero(&servaddr, sizeof(servaddr));
+    memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family         = PF_INET;
     servaddr.sin_addr.s_addr    = htonl(INADDR_ANY);
     servaddr.sin_port           = htons(PORT);
@@ -255,6 +274,8 @@ int main(int argc, char **argv) {
     }
 }
 
+// Code shamelessly sourced from this StackOverflow post:
+// http://stackoverflow.com/questions/504810/how-do-i-find-the-current-machines-full-hostname-in-c-hostname-and-domain-info
 string getFqHostname()
 {
     struct addrinfo hints, *info, *p;
@@ -294,9 +315,50 @@ void doHelloCommand(int sockfd, string const& cmdString)
     }
 }
 
-string doMailCommand(int sockfd, string const& cmdString)
+int doMailCommand(int sockfd, string const& cmdString, string &reversePath)
 {
-    return "test@example.com";
+    // Make sure FROM parameter exists
+    int fromPos = cmdString.find_first_of("FROM:");
+    if (fromPos == string::npos) {
+        return -1;
+    }
+
+    // Find the email address in the <...> syntax
+    int startBracketPos = cmdString.find_first_of('<');
+    int endBracketPos = cmdString.find_last_of('>');
+    int substrLength = endBracketPos - startBracketPos - 1;
+
+    reversePath = cmdString.substr(startBracketPos + 1, substrLength);
+
+    // Make sure the email address appears "valid"
+    int atSignPos = reversePath.find_first_of('@');
+    if (atSignPos == string::npos) {
+        return -1;
+    }
+
+    // give a success exit code
+    return 0;
+}
+
+int doRcptCommand(int sockfd, string const& cmdString, string& forwardPath)
+{
+    int toPos = cmdString.find_first_of("TO:");
+    if (toPos == string::npos) {
+        return -1;
+    }
+
+    int startBracketPos = cmdString.find_first_of('<');
+    int endBracketPos = cmdString.find_last_of('>');
+    int substrLength = endBracketPos - startBracketPos - 1;
+
+    forwardPath = cmdString.substr(startBracketPos + 1, substrLength);
+
+    int atSignPos = forwardPath.find_first_of('@');
+    if (atSignPos == string::npos) {
+        return -1;
+    }
+
+    return 0;
 }
 
 void doRsetCommand(int sockfd)
@@ -323,9 +385,15 @@ void doUnknownCommand(int sockfd)
     write(sockfd, message.c_str(), message.length());
 }
 
-void doOutOfOrderError(int sockfd, string errorMsg)
+void doError(int sockfd, string const& errorCode, string const& errorMsg)
 {
-    string message = "503 " + errorMsg + "\n";
+    string message = errorCode + " " + errorMsg + "\n";
+    write(sockfd, message.c_str(), message.length());
+}
+
+void doSuccess(int sockfd, string const& errorCode, string const& errorMsg)
+{
+    string message = errorCode + " " + errorMsg + '\n';
     write(sockfd, message.c_str(), message.length());
 }
 
