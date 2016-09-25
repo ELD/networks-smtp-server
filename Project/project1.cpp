@@ -555,6 +555,13 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     string message;
     char reply[1024];
     int len = -1;
+
+    // Read connection message first
+    len = read(lfd, reply, 1023);
+    if (len >= 0) {
+        reply[len] = '\0';
+    }
+
     // Write EHLO
     message = "HELO " + fqHostname;
     write(lfd, message.c_str(), message.length());
