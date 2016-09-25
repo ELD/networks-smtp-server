@@ -498,7 +498,85 @@ int writeToLocalFilesystem(const string &reversePath, const string &forwardPath,
     // Return success or failure
     return 0;
 }
-int attemptToRelay(const string &reversePath, const string &forwardPath, const string &message) {}
+int attemptToRelay(const string &reversePath, const string &forwardPath, const string &mailMessage)
+{
+    int atSignPos = forwardPath.find('@');
+    if (atSignPos == string::npos) {
+        return -1;
+    }
+
+    string hostname = forwardPath.substr(atSignPos + 1);
+
+    // Look up MX record
+    string mxHostname;
+    if (getMxRecord(hostname, mxHostname) < 0) {
+        return -1;
+    }
+
+    // Create client-socket connection to MTA
+    // Step 1
+    int lfd = -1;
+    if ((lfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+        return -1;
+    }
+
+    // Step 2
+    struct sockaddr_in clientaddr;
+    struct hostent *server;
+
+    server = gethostbyname(mxHostname.c_str());
+
+    memset(&clientaddr, 0, sizeof(clientaddr));
+
+    clientaddr.sin_family = PF_INET;
+    memcpy((char *)&clientaddr.sin_addr.s_addr, (char *)server->h_addr, server->h_length);
+    clientaddr.sin_port = htons(10002);
+
+    // Step 3
+    if (connect(lfd, (sockaddr *)&clientaddr, sizeof(clientaddr)) < 0) {
+        return -1;
+    }
+
+    if (DEBUG) {
+        cout << "Connected on fd = " << lfd << endl;
+    }
+
+    // Relay commands, check for errors - read & write to the file descriptor
+    string message;
+    char reply[1024];
+    int len = -1;
+    // Write EHLO
+    message = "HELO " + fqHostname;
+    write(lfd, message.c_str(), message.length());
+
+    // Read response
+    len = read(lfd, reply, 1023);
+    if (len >= 0) {
+        reply[len] = '\0';
+    }
+    cout << "response: " << reply << endl;
+    // Write MAIL FROM:<>
+    // Read response
+    // Write RCPT TO:<>
+    // Read response
+    // Write DATA
+    // Read response
+    // Write QUIT
+    message = "QUIT";
+    write(lfd, message.c_str(), message.length());
+    // Read response
+    len = read(lfd, reply, 1023);
+    if (len >= 0) {
+        reply[len] = '\0';
+    }
+    cout << "reply: " << reply << endl;
+
+    // Close socket
+    close(lfd);
+
+    // Return success
+    return 0;
+}
 
 bool isLocalRecipient(string const &forwardPath)
 {
@@ -511,6 +589,47 @@ bool isLocalRecipient(string const &forwardPath)
     }
 
     return true;
+}
+
+int getMxRecord(string const &hostname, string &mxResult)
+{
+    // Lookup MX record for hostname
+    // Comes from: http://stackoverflow.com/questions/1688432/querying-mx-record-in-c-linux
+    // I figured it was fine to look this up on SO because we didn't explicitly cover this in class
+    int limit = 1;
+    unsigned char response[NS_PACKETSZ];
+    ns_msg handle;
+    ns_rr rr;
+    int mx_index, ns_index, len;
+    char dispbuf[4096];
+
+    if ((len = res_search(hostname.c_str(), C_IN, T_MX, response, sizeof(response))) < 0) {
+        return -1;
+    }
+
+    if (ns_initparse(response, len, &handle) < 0) {
+        return -1;
+    }
+
+    len = ns_msg_count(handle, ns_s_an);
+    if (len < 0) {
+        return -1;
+    }
+
+    for (mx_index = 0, ns_index = 0; mx_index < limit && ns_index < len; ns_index++) {
+        if (ns_parserr(&handle, ns_s_an, ns_index, &rr)) {
+            continue;
+        }
+        ns_sprintrr(&handle, &rr, NULL, NULL, dispbuf, sizeof(dispbuf));
+        if (ns_rr_class(rr) == ns_c_in && ns_rr_type(rr) == ns_t_mx) {
+            char mxname[MAXDNAME];
+            dn_expand(ns_msg_base(handle), ns_msg_base(handle) + ns_msg_size(handle), ns_rr_rdata(rr) + NS_INT16SZ,
+                      mxname, sizeof(mxname));
+            mxResult = strdup(mxname);
+        }
+    }
+
+    return 0;
 }
 
 string trim_ref(string &s)

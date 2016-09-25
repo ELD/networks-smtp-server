@@ -57,6 +57,7 @@ void processMessage(int, string const &, string const &, string const &);
 int writeToLocalFilesystem(string const &, string const &, string const &);
 int attemptToRelay(string const &, string const &, string const &);
 bool isLocalRecipient(string const &);
+int getMxRecord(string const &, string &);
 string trim_ref(string &);
 string trim_val(string);
 
