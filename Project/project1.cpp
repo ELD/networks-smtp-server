@@ -542,6 +542,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
 
     // Step 3
     if (connect(lfd, (sockaddr *)&clientaddr, sizeof(clientaddr)) < 0) {
+        cout << strerror(errno) << endl;
         return -1;
     }
 
