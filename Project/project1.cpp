@@ -513,11 +513,19 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
         return -1;
     }
 
+    if (DEBUG) {
+        cout << "Got MX record" << mxHostname << endl;
+    }
+
     // Create client-socket connection to MTA
     // Step 1
     int lfd = -1;
     if ((lfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         return -1;
+    }
+
+    if (DEBUG) {
+        cout << "Created a client-socket of fd = " << lfd << endl;
     }
 
     // Step 2
