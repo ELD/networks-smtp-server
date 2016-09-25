@@ -74,13 +74,13 @@ void* processConnection(void *arg) {
     if (DEBUG)
         cout << "We are in the thread with fd = " << sockfd << endl;
 
-    bool connectionActive   = true;
-    bool seenMAIL            = false;
-    bool seenRCPT            = false;
-    bool seenDATA            = false;
-    string forwardPath      = "";
-    string reversePath      = "";
-    char *messageBuffer     = nullptr;
+    bool connectionActive = true;
+    bool seenMAIL = false;
+    bool seenRCPT = false;
+    bool seenDATA = false;
+    string forwardPath = "";
+    string reversePath = "";
+    string messageBuffer = "";
     string cmdString = "";
 
     // C++11/14 lambda to reset the state of the server
@@ -92,7 +92,7 @@ void* processConnection(void *arg) {
         seenDATA = false;
         forwardPath = "";
         reversePath = "";
-        messageBuffer = nullptr;
+        messageBuffer = "";
     };
 
     string fqHostname = getFqHostname();
@@ -107,7 +107,7 @@ void* processConnection(void *arg) {
         // *******************************************************
         cout << "Reading from socketfd = " << sockfd << endl;
         cmdString = readCommand(sockfd);
-        cmdString = trim(cmdString);
+        cmdString = trim_ref(cmdString);
 
         // *******************************************************
         // * Parse the command.
@@ -157,7 +157,16 @@ void* processConnection(void *arg) {
                 if (!seenRCPT) {
                     doError(sockfd, "503", "valid RCPT must precede DATA");
                 } else {
-                    //doDataCommand(...);
+                    doSuccess(sockfd, "354", "Start mail input; end with <CRLF>.<CRLF>");
+                    fetchMessageBuffer(sockfd, messageBuffer);
+                    result = processMessage(reversePath, forwardPath, messageBuffer);
+
+                    if (result != 0) {
+                        doError(sockfd, "451", "Local error in processing");
+                    } else {
+                        doSuccess(sockfd, "250", "OK");
+                    }
+                    // TODO: Error handling on result
                 }
 
                 break;
@@ -397,7 +406,63 @@ void doSuccess(int sockfd, string const& errorCode, string const& errorMsg)
     write(sockfd, message.c_str(), message.length());
 }
 
-string trim(string &s)
+void fetchMessageBuffer(int sockfd, string &msgBuffer)
+{
+    bool keepGoing = true;
+
+    char readBuffer[1024];
+    while (keepGoing)
+    {
+        memset(&readBuffer, 0, 1024);
+        int length = read(sockfd, readBuffer, 1024);
+        if (length >= 0) {
+            readBuffer[length] = '\0';
+        }
+
+        if (trim_val(string(readBuffer)) != ".") {
+            msgBuffer += string(readBuffer);
+        } else {
+            keepGoing = false;
+        }
+    }
+}
+
+int processMessage(string const& reversePath, string const& forwardPath, string const& message)
+{
+    // Get username@hostname
+    int atSignPos = forwardPath.find('@');
+    if (atSignPos == string::npos) {
+        return -1;
+    }
+
+    string username = forwardPath.substr(0, atSignPos);
+    // Create or open in append file 'username'
+    fstream f(username, ios_base::out | ios_base::app);
+    cout << "Creating or opening file with name " << username << endl;
+    // Generate timestamp
+    string timestamp = "Sun, 25 Dec 2011 21:33:37 +0800";
+    // Dump message buffer into file 'username'
+    f << "From " << reversePath << " " << timestamp << endl;
+    f << "Date: " << timestamp << endl;
+    f << message << endl;
+    f << endl;
+    f.close();
+
+    cout << "Finished writing to file" << endl;
+    // Return success or failure
+    return 0;
+}
+
+string trim_ref(string &s)
+{
+    s.erase(s.begin(), find_if(s.begin(), s.end(),
+                not1(ptr_fun<int, int>(isspace))));
+    s.erase(find_if(s.rbegin(), s.rend(),
+                not1(ptr_fun<int, int>(isspace))).base(), s.end());
+    return s;
+}
+
+string trim_val(string s)
 {
     s.erase(s.begin(), find_if(s.begin(), s.end(),
                 not1(ptr_fun<int, int>(isspace))));

@@ -15,6 +15,7 @@
 #include <errno.h>
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <set>
 #include <algorithm>
@@ -50,7 +51,10 @@ void doQuitCommand(int, string const&);
 void doUnknownCommand(int);
 void doError(int, string const&, string const&);
 void doSuccess(int, string const&, string const&);
-string trim(string &);
+void fetchMessageBuffer(int, string &);
+int processMessage(string const &, string const &, string const &);
+string trim_ref(string &);
+string trim_val(string);
 
 #endif
 
