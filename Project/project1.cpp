@@ -1,8 +1,8 @@
 #include "includes.hpp"
 
-const static int    MAXLINE = 1024;
-const static int    PORT    = 10001;
-const static bool   DEBUG   = true;
+const static int MAXLINE = 1024;
+const static int PORT = 10001;
+const static bool DEBUG = true;
 
 // ***************************************************************************
 // * Read the command from the socket.
@@ -33,23 +33,30 @@ int parseCommand(string commandString)
 
     if (spacePos != string::npos) {
         command = commandString.substr(0, spacePos);
-    } else {
+    }
+    else {
         command = commandString;
     }
 
     if (command == "HELO" || command == "EHLO") {
         return HELO;
-    } else if (command == "MAIL") {
+    }
+    else if (command == "MAIL") {
         return MAIL;
-    } else if (command == "RCPT") {
+    }
+    else if (command == "RCPT") {
         return RCPT;
-    } else if (command == "DATA") {
+    }
+    else if (command == "DATA") {
         return DATA;
-    } else if (command == "RSET") {
+    }
+    else if (command == "RSET") {
         return RSET;
-    } else if (command == "NOOP") {
+    }
+    else if (command == "NOOP") {
         return NOOP;
-    } else if (command == "QUIT") {
+    }
+    else if (command == "QUIT") {
         return QUIT;
     }
 
@@ -64,13 +71,14 @@ int parseCommand(string commandString)
 // *      statments for debugging when I know there will be just one thread
 // *      but once you are processing multiple requests it might cause problems.
 // ***************************************************************************
-void* processConnection(void *arg) {
+void *processConnection(void *arg)
+{
     // *******************************************************
     // * This is a little bit of a cheat, but if you end up
     // * with a FD of more than 64 bits you are in trouble
     // *******************************************************
-    int sockfd = *(int *) arg;
-    delete (int *) arg;
+    int sockfd = *(int *)arg;
+    delete (int *)arg;
     if (DEBUG)
         cout << "We are in the thread with fd = " << sockfd << endl;
 
@@ -86,7 +94,7 @@ void* processConnection(void *arg) {
     // C++11/14 lambda to reset the state of the server
     // reduces code duplication
     // It captures the outer scope by reference to allow for mutation
-    auto resetState = [&](){
+    auto resetState = [&]() {
         seenMAIL = false;
         seenRCPT = false;
         seenDATA = false;
@@ -119,71 +127,80 @@ void* processConnection(void *arg) {
         // *******************************************************
         int result = -1;
         switch (command) {
-            case HELO:
-                doHelloCommand(sockfd, cmdString);
-                break;
-            case MAIL:
-                resetState();
-                result = doMailCommand(sockfd, cmdString, reversePath);
+        case HELO:
+            doHelloCommand(sockfd, cmdString);
+            break;
+        case MAIL:
+            resetState();
+            result = doMailCommand(sockfd, cmdString, reversePath);
+
+            if (result != 0) {
+                doError(sockfd, "501", "reverse path not well-formed");
+            }
+            else {
+                seenMAIL = true;
+                doSuccess(sockfd, "250", "reverse path ok");
+                cout << "Setting reverse path: " << reversePath << endl;
+            }
+
+            result = -1;
+
+            break;
+        case RCPT:
+            // Only work if you've seen MAIL command
+            if (!seenMAIL) {
+                doError(sockfd, "503", "sender info not yet given");
+            }
+            else {
+                result = doRcptCommand(sockfd, cmdString, forwardPath);
+                if (result < 0) {
+                    doError(sockfd, "501", "forward path not well-formed");
+                }
+                else {
+                    seenRCPT = true;
+                    if (isLocalRecipient(forwardPath)) {
+                        doSuccess(sockfd, "250", "forward path ok");
+                    }
+                    else {
+                        doSuccess(sockfd, "251", "recipient not local, will attempt to forward");
+                    }
+                }
+            }
+            break;
+        case DATA:
+            // Only work if you've seen MAIL and RCPT command
+            if (!seenRCPT) {
+                doError(sockfd, "503", "valid RCPT must precede DATA");
+            }
+            else {
+                doSuccess(sockfd, "354", "Start mail input; end with <CRLF>.<CRLF>");
+                fetchMessageBuffer(sockfd, messageBuffer);
+                result = processMessage(reversePath, forwardPath, messageBuffer);
 
                 if (result != 0) {
-                    doError(sockfd, "501", "reverse path not well-formed");
-                } else {
-                    seenMAIL = true;
-                    doSuccess(sockfd, "250", "reverse path ok");
-                    cout << "Setting reverse path: " << reversePath << endl;
+                    doError(sockfd, "451", "Local error in processing");
                 }
-
-                result = -1;
-
-                break;
-            case RCPT:
-                // Only work if you've seen MAIL command
-                if (!seenMAIL) {
-                    doError(sockfd, "503", "sender info not yet given");
-                } else {
-                    result = doRcptCommand(sockfd, cmdString, forwardPath);
-                    if (result != 0) {
-                        doError(sockfd, "501", "forward path not well-formed");
-                    } else {
-                        seenRCPT = true;
-                        doSuccess(sockfd, "250", "forward path ok");
-                        cout << "Setting forward path: " << forwardPath << endl;
-                    }
+                else {
+                    doSuccess(sockfd, "250", "OK");
                 }
-                break;
-            case DATA:
-                // Only work if you've seen MAIL and RCPT command
-                if (!seenRCPT) {
-                    doError(sockfd, "503", "valid RCPT must precede DATA");
-                } else {
-                    doSuccess(sockfd, "354", "Start mail input; end with <CRLF>.<CRLF>");
-                    fetchMessageBuffer(sockfd, messageBuffer);
-                    result = processMessage(reversePath, forwardPath, messageBuffer);
+                // TODO: Error handling on result
+            }
 
-                    if (result != 0) {
-                        doError(sockfd, "451", "Local error in processing");
-                    } else {
-                        doSuccess(sockfd, "250", "OK");
-                    }
-                    // TODO: Error handling on result
-                }
-
-                break;
-            case RSET:
-                resetState();
-                doRsetCommand(sockfd);
-                break;
-            case NOOP:
-                doNoopCommand(sockfd);
-                break;
-            case QUIT:
-                doQuitCommand(sockfd, fqHostname);
-                connectionActive = false;
-                break;
-            default:
-                doUnknownCommand(sockfd);
-                break;
+            break;
+        case RSET:
+            resetState();
+            doRsetCommand(sockfd);
+            break;
+        case NOOP:
+            doNoopCommand(sockfd);
+            break;
+        case QUIT:
+            doQuitCommand(sockfd, fqHostname);
+            connectionActive = false;
+            break;
+        default:
+            doUnknownCommand(sockfd);
+            break;
         }
     }
 
@@ -191,15 +208,13 @@ void* processConnection(void *arg) {
 
     if (DEBUG)
         cout << "Thread terminating" << endl;
-
 }
-
-
 
 // ***************************************************************************
 // * Main
 // ***************************************************************************
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 
     if (argc != 1) {
         cout << "usage " << argv[0] << endl;
@@ -211,12 +226,10 @@ int main(int argc, char **argv) {
     // ********************************************************************
     int listenfd = -1;
     if ((listenfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-        cout << "Failed to create listening socket "
-             << strerror(errno) << endl;
+        cout << "Failed to create listening socket " << strerror(errno) << endl;
 
         exit(-1);
     }
-
 
     // ********************************************************************
     // * The same address structure is used, however we use a wildcard
@@ -225,10 +238,9 @@ int main(int argc, char **argv) {
     struct sockaddr_in servaddr;
 
     memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family         = PF_INET;
-    servaddr.sin_addr.s_addr    = htonl(INADDR_ANY);
-    servaddr.sin_port           = htons(PORT);
-
+    servaddr.sin_family = PF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(PORT);
 
     // ********************************************************************
     // * Binding configures the socket with the parameters we have
@@ -238,7 +250,7 @@ int main(int argc, char **argv) {
     if (DEBUG)
         cout << "Process has bound fd " << listenfd << " to port " << PORT << endl;
 
-    if (bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
+    if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         cout << "bind() failed: " << strerror(errno) << endl;
         exit(-1);
     }
@@ -258,18 +270,17 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
-
     // ********************************************************************
     // * The accept call will sleep, waiting for a connection.  When
     // * a connection request comes in the accept() call creates a NEW
     // * socket with a new fd that will be used for the communication.
     // ********************************************************************
-    set<pthread_t*> threads;
+    set<pthread_t *> threads;
     while (1) {
         if (DEBUG)
             cout << "Calling accept() in master thread." << endl;
         int *connfd = new int(-1);
-        if ((*connfd = accept(listenfd, (struct sockaddr *) nullptr, nullptr)) < 0) {
+        if ((*connfd = accept(listenfd, (struct sockaddr *)nullptr, nullptr)) < 0) {
             cout << "Accept failed: " << strerror(errno) << endl;
             exit(-1);
         }
@@ -277,7 +288,7 @@ int main(int argc, char **argv) {
         if (DEBUG)
             cout << "Spawing new thread to handled connect on fd=" << *connfd << endl;
 
-        pthread_t* threadID = new pthread_t;
+        pthread_t *threadID = new pthread_t;
         pthread_create(threadID, nullptr, processConnection, (void *)connfd);
         threads.insert(threadID);
     }
@@ -311,20 +322,21 @@ string getFqHostname()
     return fqHostname;
 }
 
-void doHelloCommand(int sockfd, string const& cmdString)
+void doHelloCommand(int sockfd, string const &cmdString)
 {
     int hostnameStartPos = cmdString.find_first_of(' ');
     if (hostnameStartPos != string::npos) {
         string hostname = cmdString.substr(hostnameStartPos + 1);
         string message = "250 hello " + hostname + "\n";
         write(sockfd, message.c_str(), message.length());
-    } else {
+    }
+    else {
         string message = "501 missing argument(s)\n";
         write(sockfd, message.c_str(), message.length());
     }
 }
 
-int doMailCommand(int sockfd, string const& cmdString, string &reversePath)
+int doMailCommand(int sockfd, string const &cmdString, string &reversePath)
 {
     // Make sure FROM parameter exists
     int fromPos = cmdString.find("FROM:");
@@ -349,7 +361,7 @@ int doMailCommand(int sockfd, string const& cmdString, string &reversePath)
     return 0;
 }
 
-int doRcptCommand(int sockfd, string const& cmdString, string& forwardPath)
+int doRcptCommand(int sockfd, string const &cmdString, string &forwardPath)
 {
     int toPos = cmdString.find("TO:");
     if (toPos == string::npos) {
@@ -382,7 +394,7 @@ void doNoopCommand(int sockfd)
     write(sockfd, message.c_str(), message.length());
 }
 
-void doQuitCommand(int sockfd, string const& fqHostname)
+void doQuitCommand(int sockfd, string const &fqHostname)
 {
     string message = "221 " + fqHostname + " closing connection\n";
     write(sockfd, message.c_str(), message.length());
@@ -394,13 +406,13 @@ void doUnknownCommand(int sockfd)
     write(sockfd, message.c_str(), message.length());
 }
 
-void doError(int sockfd, string const& errorCode, string const& errorMsg)
+void doError(int sockfd, string const &errorCode, string const &errorMsg)
 {
     string message = errorCode + " " + errorMsg + "\n";
     write(sockfd, message.c_str(), message.length());
 }
 
-void doSuccess(int sockfd, string const& errorCode, string const& errorMsg)
+void doSuccess(int sockfd, string const &errorCode, string const &errorMsg)
 {
     string message = errorCode + " " + errorMsg + '\n';
     write(sockfd, message.c_str(), message.length());
@@ -411,8 +423,7 @@ void fetchMessageBuffer(int sockfd, string &msgBuffer)
     bool keepGoing = true;
 
     char readBuffer[1024];
-    while (keepGoing)
-    {
+    while (keepGoing) {
         memset(&readBuffer, 0, 1024);
         int length = read(sockfd, readBuffer, 1024);
         if (length >= 0) {
@@ -421,13 +432,24 @@ void fetchMessageBuffer(int sockfd, string &msgBuffer)
 
         if (trim_val(string(readBuffer)) != ".") {
             msgBuffer += string(readBuffer);
-        } else {
+        }
+        else {
             keepGoing = false;
         }
     }
 }
 
-int processMessage(string const& reversePath, string const& forwardPath, string const& message)
+int processMessage(string const &reversePath, string const &forwardPath, string const &message)
+{
+    if (isLocalRecipient(forwardPath)) {
+        return writeToLocalFilesystem(reversePath, forwardPath, message);
+    }
+    else {
+        return attemptToRelay(reversePath, forwardPath, message);
+    }
+}
+
+int writeToLocalFilesystem(const string &reversePath, const string &forwardPath, const string &message)
 {
     // Get username@hostname
     int atSignPos = forwardPath.find('@');
@@ -460,26 +482,34 @@ int processMessage(string const& reversePath, string const& forwardPath, string 
     f << endl;
     f.close();
 
-    cout << "Finished writing to file" << endl;
     // Return success or failure
     return 0;
+}
+int attemptToRelay(const string &reversePath, const string &forwardPath, const string &message) {}
+
+bool isLocalRecipient(string const &forwardPath)
+{
+    int atSignPos = forwardPath.find('@');
+
+    string hostname = forwardPath.substr(atSignPos + 1);
+
+    if (hostname != "localhost") {
+        return false;
+    }
+
+    return true;
 }
 
 string trim_ref(string &s)
 {
-    s.erase(s.begin(), find_if(s.begin(), s.end(),
-                not1(ptr_fun<int, int>(isspace))));
-    s.erase(find_if(s.rbegin(), s.rend(),
-                not1(ptr_fun<int, int>(isspace))).base(), s.end());
+    s.erase(s.begin(), find_if(s.begin(), s.end(), not1(ptr_fun<int, int>(isspace))));
+    s.erase(find_if(s.rbegin(), s.rend(), not1(ptr_fun<int, int>(isspace))).base(), s.end());
     return s;
 }
 
 string trim_val(string s)
 {
-    s.erase(s.begin(), find_if(s.begin(), s.end(),
-                not1(ptr_fun<int, int>(isspace))));
-    s.erase(find_if(s.rbegin(), s.rend(),
-                not1(ptr_fun<int, int>(isspace))).base(), s.end());
+    s.erase(s.begin(), find_if(s.begin(), s.end(), not1(ptr_fun<int, int>(isspace))));
+    s.erase(find_if(s.rbegin(), s.rend(), not1(ptr_fun<int, int>(isspace))).base(), s.end());
     return s;
 }
-

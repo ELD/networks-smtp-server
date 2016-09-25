@@ -1,0 +1,6 @@
+UseTab: Never
+BasedOnStyle: LLVM
+Cpp11BracedListStyle: true
+IndentWidth: 4
+ColumnLimit: 120
+BreakBeforeBraces: Stroustrup

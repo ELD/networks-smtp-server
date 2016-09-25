@@ -40,22 +40,24 @@ const static int QUIT = 7;
 // ************************************************************************
 string readCommand(int sockfd);
 int parseCommand(string commandString);
-void* processConnection(void *arg);
+void *processConnection(void *arg);
 string getFqHostname();
-void doHelloCommand(int, string const&);
-int doMailCommand(int, string const&, string &);
-int doRcptCommand(int, string const&, string &);
+void doHelloCommand(int, string const &);
+int doMailCommand(int, string const &, string &);
+int doRcptCommand(int, string const &, string &);
 int doDataCommand(int);
 void doRsetCommand(int);
 void doNoopCommand(int);
-void doQuitCommand(int, string const&);
+void doQuitCommand(int, string const &);
 void doUnknownCommand(int);
-void doError(int, string const&, string const&);
-void doSuccess(int, string const&, string const&);
+void doError(int, string const &, string const &);
+void doSuccess(int, string const &, string const &);
 void fetchMessageBuffer(int, string &);
 int processMessage(string const &, string const &, string const &);
+int writeToLocalFilesystem(string const &, string const &, string const &);
+int attemptToRelay(string const &, string const &, string const &);
+bool isLocalRecipient(string const &);
 string trim_ref(string &);
 string trim_val(string);
 
 #endif
-
