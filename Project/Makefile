@@ -7,9 +7,9 @@
 #
 
 #CXX = g++
-#LD = g++
-CXXFLAGS = -g -pthread -fpermissive -std=c++14
-LDFLAGS = -g -pthread
+#LD = ld
+CXXFLAGS = -g -pthread -std=c++14 -lresolv
+LDFLAGS = -g -pthread -lresolv
 
 #
 # You should be able to add object files here without changing anything else

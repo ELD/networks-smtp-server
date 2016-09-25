@@ -11,7 +11,13 @@ const static bool   DEBUG   = true;
 string readCommand(int sockfd)
 {
     char buffer[MAXLINE];
-    read(sockfd, &buffer, MAXLINE);
+    int size = read(sockfd, buffer, MAXLINE);
+
+    // read() doesn't put the null terminator on the string automatically... :(
+    if (size >= 0) {
+        buffer[size] = '\0';
+    }
+
     return string(buffer);
 }
 
@@ -24,13 +30,13 @@ int parseCommand(string commandString)
 {
     string command = "";
     int spacePos = commandString.find_first_of(' ');
-    cout << "First of space: " << spacePos << endl;
 
     if (spacePos != string::npos) {
         command = commandString.substr(0, spacePos);
     } else {
         command = commandString;
     }
+
     if (command == "HELO" || command == "EHLO") {
         return HELO;
     } else if (command == "MAIL") {
@@ -77,6 +83,17 @@ void* processConnection(void *arg) {
     char *messageBuffer     = nullptr;
     string cmdString = "";
 
+    // C++11/14 lambda to reset the state of the server
+    // reduces code duplication
+    auto resetState = [&](){
+        seenMAIL = false;
+        seenRCPT = false;
+        seenDATA = false;
+        forwardPath = "";
+        reversePath = "";
+        messageBuffer = nullptr;
+    };
+
     while (connectionActive) {
         // *******************************************************
         // * Read the command from the socket.
@@ -84,7 +101,6 @@ void* processConnection(void *arg) {
         cout << "Reading from socketfd = " << sockfd << endl;
         cmdString = readCommand(sockfd);
         cmdString = trim(cmdString);
-        cout << "Trimmed command string: " << cmdString << endl;
 
         // *******************************************************
         // * Parse the command.
@@ -94,6 +110,7 @@ void* processConnection(void *arg) {
         // *******************************************************
         // * Act on each of the commands we need to implement.
         // *******************************************************
+        string domain = "gmail.com";
         switch (command) {
             case HELO:
                 // TODO: Grab hostname
@@ -101,8 +118,13 @@ void* processConnection(void *arg) {
                 break;
             case MAIL:
                 // TODO: Fetch 'from' field of email and store in the reversePath
+                resetState();
                 reversePath = doMailCommand(sockfd, cmdString);
                 cout << "Setting reverse path: " << reversePath << endl;
+                // XXX Totally experimental use of res_query
+                u_char result[1024];
+                res_query(domain.c_str(), C_IN, T_MX, result, 1024);
+                cout << "res_query result: " << result << endl;
                 break;
             case RCPT:
                 // Only work if you've seen MAIL command
@@ -113,15 +135,8 @@ void* processConnection(void *arg) {
                 // TODO: Fetch message body
                 break;
             case RSET:
-            {
-                seenDATA = false;
-                seenMAIL = false;
-                seenRCPT = false;
-                forwardPath = "";
-                reversePath = "";
-                messageBuffer = nullptr;
+                resetState();
                 break;
-            }
             case NOOP:
                 doNoopCommand(sockfd);
                 break;
