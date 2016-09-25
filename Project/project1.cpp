@@ -440,10 +440,22 @@ int processMessage(string const& reversePath, string const& forwardPath, string 
     fstream f(username, ios_base::out | ios_base::app);
     cout << "Creating or opening file with name " << username << endl;
     // Generate timestamp
-    string timestamp = "Sun, 25 Dec 2011 21:33:37 +0800";
+    time_t rawtime;
+    struct tm *timeInfo;
+    char timestamp[80];
+
+    time(&rawtime);
+    timeInfo = localtime(&rawtime);
+
+    strftime(timestamp, 80, "%c", timeInfo);
+    string headerTimestamp = string(timestamp);
+
+    strftime(timestamp, 80, "%a, %d %b %Y %T %z", timeInfo);
+    string dateTimestamp = string(timestamp);
+
     // Dump message buffer into file 'username'
-    f << "From " << reversePath << " " << timestamp << endl;
-    f << "Date: " << timestamp << endl;
+    f << "From " << reversePath << " " << headerTimestamp << endl;
+    f << "Date: " << dateTimestamp << endl;
     f << message << endl;
     f << endl;
     f.close();

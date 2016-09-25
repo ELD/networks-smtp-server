@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <sys/socket.h>
 #include <sys/types.h>
 
