@@ -348,7 +348,13 @@ int doMailCommand(int sockfd, string const &cmdString, string &reversePath)
     int endBracketPos = cmdString.find('>');
     int substrLength = endBracketPos - startBracketPos - 1;
 
-    reversePath = cmdString.substr(startBracketPos + 1, substrLength);
+    if (startBracketPos != string::npos && endBracketPos != string::npos) {
+        reversePath = cmdString.substr(startBracketPos + 1, substrLength);
+    }
+    else {
+        int colon = cmdString.find(':');
+        reversePath = trim_val(cmdString.substr(colon + 1));
+    }
 
     // Make sure the email address appears "valid"
     int atSignPos = reversePath.find('@');
@@ -371,7 +377,13 @@ int doRcptCommand(int sockfd, string const &cmdString, string &forwardPath)
     int endBracketPos = cmdString.find('>');
     int substrLength = endBracketPos - startBracketPos - 1;
 
-    forwardPath = cmdString.substr(startBracketPos + 1, substrLength);
+    if (startBracketPos != string::npos && endBracketPos != string::npos) {
+        forwardPath = cmdString.substr(startBracketPos + 1, substrLength);
+    }
+    else {
+        int colon = cmdString.find(':');
+        forwardPath = trim_val(cmdString.substr(colon + 1));
+    }
 
     int atSignPos = forwardPath.find('@');
     if (atSignPos == string::npos) {
@@ -559,7 +571,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     char reply[1024];
     int len = -1;
 
-    auto quitRemote = [&](){
+    auto quitRemote = [&]() {
         // Write QUIT
         message = "QUIT\r\n";
         write(lfd, message.c_str(), message.length());
@@ -579,7 +591,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
         reply[len] = '\0';
     }
     replyStr = reply;
-    if (replyStr.substr(0,3) != "220") {
+    if (replyStr.substr(0, 3) != "220") {
         cout << "failed on connect" << endl;
         quitRemote();
         return -1;
@@ -595,7 +607,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
         reply[len] = '\0';
     }
     replyStr = reply;
-    if (replyStr.substr(0,3) != "250") {
+    if (replyStr.substr(0, 3) != "250") {
         cout << "failed on helo command" << endl;
         quitRemote();
         return -1;
@@ -610,7 +622,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
         reply[len] = '\0';
     }
     replyStr = reply;
-    if (replyStr.substr(0,3) != "250") {
+    if (replyStr.substr(0, 3) != "250") {
         cout << "failed on MAIL FROM command" << endl;
         quitRemote();
         return -1;
@@ -625,7 +637,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
         reply[len] = '\0';
     }
     replyStr = reply;
-    if (replyStr.substr(0,3) != "250" && replyStr.substr(0,3) != "251") {
+    if (replyStr.substr(0, 3) != "250" && replyStr.substr(0, 3) != "251") {
         cout << "failed on RCPT TO command" << endl;
         quitRemote();
         return -1;
@@ -640,7 +652,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
         reply[len] = '\0';
     }
     replyStr = reply;
-    if (replyStr.substr(0,3) != "354") {
+    if (replyStr.substr(0, 3) != "354") {
         cout << "Failed on DATA command" << endl;
         quitRemote();
         return -1;
@@ -655,7 +667,7 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
         reply[len] = '\0';
     }
     replyStr = reply;
-    if (replyStr.substr(0,3) != "250") {
+    if (replyStr.substr(0, 3) != "250") {
         cout << "Failed while submitting message" << endl;
         quitRemote();
         return -1;
