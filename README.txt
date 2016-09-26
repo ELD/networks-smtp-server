@@ -3,6 +3,7 @@ Name: Eric Dattore
 Instructions and Notes:
 Just type 'make' and then run the project1 executable to run the server.
 Use telnet to interface with the SMTP server and play around with the.
+The server has been tested on Isengard and should Just Work™
 
 I implemented return code 251 for when you are sending emails to non-local individuals.
 The mboxes created for @localhost addresses can be read by the Unix mail command (mail -f <filename>).
