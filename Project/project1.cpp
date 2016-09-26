@@ -499,6 +499,8 @@ int writeToLocalFilesystem(const string &reversePath, const string &forwardPath,
     // Return success or failure
     return 0;
 }
+
+// TODO: Error handling mid-relay
 int attemptToRelay(const string &reversePath, const string &forwardPath, const string &mailMessage)
 {
     int atSignPos = forwardPath.find('@');
@@ -553,17 +555,38 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
 
     // Relay commands, check for errors - read & write to the file descriptor
     string message;
+    string replyStr;
     char reply[1024];
     int len = -1;
+
+    auto quitRemote = [&](){
+        // Write QUIT
+        message = "QUIT\r\n";
+        write(lfd, message.c_str(), message.length());
+        // Read response
+        len = read(lfd, reply, 1023);
+        if (len >= 0) {
+            reply[len] = '\0';
+        }
+
+        // Close socket
+        close(lfd);
+    };
 
     // Read connection message first
     len = read(lfd, reply, 1023);
     if (len >= 0) {
         reply[len] = '\0';
     }
+    replyStr = reply;
+    if (replyStr.substr(0,3) != "220") {
+        cout << "failed on connect" << endl;
+        quitRemote();
+        return -1;
+    }
 
     // Write EHLO
-    message = "HELO " + fqHostname;
+    message = "HELO " + fqHostname + "\r\n";
     write(lfd, message.c_str(), message.length());
 
     // Read response
@@ -571,25 +594,74 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     if (len >= 0) {
         reply[len] = '\0';
     }
-    cout << "response: " << reply << endl;
+    replyStr = reply;
+    if (replyStr.substr(0,3) != "250") {
+        cout << "failed on helo command" << endl;
+        quitRemote();
+        return -1;
+    }
+
     // Write MAIL FROM:<>
-    // Read response
-    // Write RCPT TO:<>
-    // Read response
-    // Write DATA
-    // Read response
-    // Write QUIT
-    message = "QUIT";
+    message = "MAIL FROM:<" + reversePath + ">\r\n";
     write(lfd, message.c_str(), message.length());
     // Read response
     len = read(lfd, reply, 1023);
     if (len >= 0) {
         reply[len] = '\0';
     }
-    cout << "reply: " << reply << endl;
+    replyStr = reply;
+    if (replyStr.substr(0,3) != "250") {
+        cout << "failed on MAIL FROM command" << endl;
+        quitRemote();
+        return -1;
+    }
 
-    // Close socket
-    close(lfd);
+    // Write RCPT TO:<>
+    message = "RCPT TO:<" + forwardPath + ">\r\n";
+    write(lfd, message.c_str(), message.length());
+    // Read response
+    len = read(lfd, reply, 1023);
+    if (len >= 0) {
+        reply[len] = '\0';
+    }
+    replyStr = reply;
+    if (replyStr.substr(0,3) != "250" && replyStr.substr(0,3) != "251") {
+        cout << "failed on RCPT TO command" << endl;
+        quitRemote();
+        return -1;
+    }
+
+    // Write DATA
+    message = "DATA\r\n";
+    write(lfd, message.c_str(), message.length());
+    // Read response
+    len = read(lfd, reply, 1023);
+    if (len >= 0) {
+        reply[len] = '\0';
+    }
+    replyStr = reply;
+    if (replyStr.substr(0,3) != "354") {
+        cout << "Failed on DATA command" << endl;
+        quitRemote();
+        return -1;
+    }
+
+    // Write message
+    message = mailMessage + ".\r\n";
+    write(lfd, message.c_str(), message.length());
+    // Read response
+    len = read(lfd, reply, 1023);
+    if (len >= 0) {
+        reply[len] = '\0';
+    }
+    replyStr = reply;
+    if (replyStr.substr(0,3) != "250") {
+        cout << "Failed while submitting message" << endl;
+        quitRemote();
+        return -1;
+    }
+
+    quitRemote();
 
     // Return success
     return 0;
