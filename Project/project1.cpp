@@ -3,7 +3,7 @@
 const static int MAXLINE = 1024;
 const static int PORT = 10001;
 const static int SMTP_PORT = 25;
-const static bool DEBUG = true;
+const static bool DEBUG = false;
 const static string fqHostname = getFqHostname();
 
 // ***************************************************************************
@@ -113,7 +113,9 @@ void *processConnection(void *arg)
         // *******************************************************
         // * Read the command from the socket.
         // *******************************************************
-        cout << "Reading from socketfd = " << sockfd << endl;
+        if (DEBUG) {
+            cout << "Reading from socketfd = " << sockfd << endl;
+        }
         cmdString = readCommand(sockfd);
         cmdString = trim_ref(cmdString);
 
@@ -140,7 +142,9 @@ void *processConnection(void *arg)
             else {
                 seenMAIL = true;
                 doSuccess(sockfd, "250", "reverse path ok");
-                cout << "Setting reverse path: " << reversePath << endl;
+                if (DEBUG) {
+                    cout << "Setting reverse path: " << reversePath << endl;
+                }
             }
 
             result = -1;
@@ -486,7 +490,9 @@ int writeToLocalFilesystem(const string &reversePath, const string &forwardPath,
     string username = forwardPath.substr(0, atSignPos);
     // Create or open in append file 'username'
     fstream f(username, ios_base::out | ios_base::app);
-    cout << "Creating or opening file with name " << username << endl;
+    if (DEBUG) {
+        cout << "Creating or opening file with name " << username << endl;
+    }
     // Generate timestamp
     time_t rawtime;
     struct tm *timeInfo;
@@ -557,7 +563,9 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
 
     // Step 3
     if (connect(lfd, (sockaddr *)&clientaddr, sizeof(clientaddr)) < 0) {
-        cout << strerror(errno) << endl;
+        if (DEBUG) {
+            cout << strerror(errno) << endl;
+        }
         return -1;
     }
 
@@ -592,7 +600,6 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     }
     replyStr = reply;
     if (replyStr.substr(0, 3) != "220") {
-        cout << "failed on connect" << endl;
         quitRemote();
         return -1;
     }
@@ -608,7 +615,6 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     }
     replyStr = reply;
     if (replyStr.substr(0, 3) != "250") {
-        cout << "failed on helo command" << endl;
         quitRemote();
         return -1;
     }
@@ -623,7 +629,6 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     }
     replyStr = reply;
     if (replyStr.substr(0, 3) != "250") {
-        cout << "failed on MAIL FROM command" << endl;
         quitRemote();
         return -1;
     }
@@ -638,7 +643,6 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     }
     replyStr = reply;
     if (replyStr.substr(0, 3) != "250" && replyStr.substr(0, 3) != "251") {
-        cout << "failed on RCPT TO command" << endl;
         quitRemote();
         return -1;
     }
@@ -653,7 +657,6 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     }
     replyStr = reply;
     if (replyStr.substr(0, 3) != "354") {
-        cout << "Failed on DATA command" << endl;
         quitRemote();
         return -1;
     }
@@ -668,7 +671,6 @@ int attemptToRelay(const string &reversePath, const string &forwardPath, const s
     }
     replyStr = reply;
     if (replyStr.substr(0, 3) != "250") {
-        cout << "Failed while submitting message" << endl;
         quitRemote();
         return -1;
     }
