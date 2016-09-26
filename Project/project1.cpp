@@ -347,7 +347,7 @@ int doMailCommand(int sockfd, string const &cmdString, string &reversePath)
         return -1;
     }
 
-    // Find the email address in the <...> syntax
+    // Find the email address in the <...> syntax or with spaces
     int startBracketPos = cmdString.find('<');
     int endBracketPos = cmdString.find('>');
     int substrLength = endBracketPos - startBracketPos - 1;
